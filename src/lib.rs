@@ -7,7 +7,9 @@ use std::collections::HashMap;
 
 pub trait Resolvable {
     fn resolve<T: Injectable>(&self) -> Option<&T>;
-    fn bind(&mut self, obj: Box<dyn Injectable>);
+    // TODO: use impl Injectable or Box<dyn Injectable>?
+    fn singleton(&mut self, obj: impl Injectable);
+    fn scoped(&mut self, obj: impl Injectable);
 }
 
 #[derive(Default)]
@@ -25,8 +27,14 @@ impl Resolvable for Container {
         return None;
     }
 
-    fn bind(&mut self, obj: Box<dyn Injectable>) {
-        self.svcs.insert(obj.type_id(), obj);
+    /// A singleton bind only occour once
+    fn singleton(&mut self, obj: impl Injectable) {
+        assert!(!self.svcs.contains_key(&obj.type_id()));
+        self.svcs.insert(obj.type_id(), Box::new(obj));
+    }
+
+    fn scoped(&mut self, obj: impl Injectable) {
+        self.svcs.insert(obj.type_id(), Box::new(obj));
     }
 }
 
@@ -81,7 +89,7 @@ mod tests {
 
         // use 2 ways to inject service into container
         Service1.inject(&mut c);
-        c.bind(Box::new(Service2));
+        c.singleton(Service2);
 
         c.run();
     }
