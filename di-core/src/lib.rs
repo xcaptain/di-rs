@@ -16,6 +16,8 @@ pub trait Resolvable {
 
 #[derive(Default)]
 pub struct Container {
+    // TODO: TypeId changes as the state of the struct changes
+    // should we use a struct as service name or keep up TypeId?
     pub svcs: HashMap<TypeId, Box<dyn Injectable>>,
 }
 
@@ -57,22 +59,16 @@ pub struct Service1;
 
 impl Service1 {
     pub fn run_service1(&self) -> usize {
-        // 6719967427312869732
         println!("hello from service1, {:?}", self.type_id());
         1
     }
 }
 
+#[derive(Injectable)]
 pub struct Service2;
-impl Injectable for Service2 {
-    fn inject(self, c: &mut Container) {
-        c.svcs.insert(self.type_id(), Box::new(self));
-    }
-}
 
 impl Service2 {
     pub fn run_service2(&self) -> usize {
-        // 702520684108117355
         println!("hello from service2, {:?}", self.type_id());
         2
     }
