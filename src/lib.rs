@@ -2,43 +2,39 @@
 extern crate downcast_rs;
 use downcast_rs::DowncastSync;
 
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::collections::HashMap;
 
 pub trait Resolvable {
-    fn resolve(&self, name: &str) -> &Box<dyn Injectable>;
-    fn bind(&mut self, name: &'static str, obj: Box<dyn Injectable>);
+    fn resolve<T: Injectable>(&self) -> Option<&T>;
+    fn bind(&mut self, obj: Box<dyn Injectable>);
 }
 
 #[derive(Default)]
 pub struct Container {
-    pub svcs: HashMap<&'static str, Box<dyn Injectable>>,
+    pub svcs: HashMap<TypeId, Box<dyn Injectable>>,
 }
 
 impl Resolvable for Container {
-    fn resolve(&self, name: &str) -> &Box<dyn Injectable> {
-        self.svcs.get(name).unwrap()
+    fn resolve<T: Injectable>(&self) -> Option<&T> {
+        for (_key, value) in self.svcs.iter() {
+            if value.is::<T>() {
+                return value.downcast_ref::<T>();
+            }
+        }
+        return None;
     }
 
-    fn bind(&mut self, name: &'static str, obj: Box<dyn Injectable>) {
-        self.svcs.insert(name, obj);
+    fn bind(&mut self, obj: Box<dyn Injectable>) {
+        self.svcs.insert(obj.type_id(), obj);
     }
 }
 
 impl Container {
     pub fn run(&self) {
         // how to run the container
-        assert!(self.svcs.contains_key("service1"));
-        assert!(self.svcs.contains_key("service2"));
-
-        self.resolve("service1")
-            .downcast_ref::<Service1>()
-            .unwrap()
-            .run_service1();
-        self.resolve("service2")
-            .downcast_ref::<Service2>()
-            .unwrap()
-            .run_service2();
+        self.resolve::<Service1>().unwrap().run_service1();
+        self.resolve::<Service2>().unwrap().run_service2();
     }
 }
 
@@ -50,7 +46,7 @@ impl_downcast!(sync Injectable);
 pub struct Service1;
 impl Injectable for Service1 {
     fn inject(self, c: &mut Container) {
-        c.svcs.insert("service1", Box::new(self));
+        c.svcs.insert(self.type_id(), Box::new(self));
     }
 }
 
@@ -64,7 +60,7 @@ impl Service1 {
 pub struct Service2;
 impl Injectable for Service2 {
     fn inject(self, c: &mut Container) {
-        c.svcs.insert("service2", Box::new(self));
+        c.svcs.insert(self.type_id(), Box::new(self));
     }
 }
 
@@ -85,7 +81,7 @@ mod tests {
 
         // use 2 ways to inject service into container
         Service1.inject(&mut c);
-        c.bind("service2", Box::new(Service2));
+        c.bind(Box::new(Service2));
 
         c.run();
     }
