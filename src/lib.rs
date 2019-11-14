@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 pub trait Resolvable {
     fn resolve(&self, name: &str) -> &Box<dyn Injectable>;
+    fn bind(&mut self, name: &'static str, obj: Box<dyn Injectable>);
 }
 
 #[derive(Default)]
@@ -17,6 +18,27 @@ pub struct Container {
 impl Resolvable for Container {
     fn resolve(&self, name: &str) -> &Box<dyn Injectable> {
         self.svcs.get(name).unwrap()
+    }
+
+    fn bind(&mut self, name: &'static str, obj: Box<dyn Injectable>) {
+        self.svcs.insert(name, obj);
+    }
+}
+
+impl Container {
+    pub fn run(&self) {
+        // how to run the container
+        assert!(self.svcs.contains_key("service1"));
+        assert!(self.svcs.contains_key("service2"));
+
+        self.resolve("service1")
+            .downcast_ref::<Service1>()
+            .unwrap()
+            .run_service1();
+        self.resolve("service2")
+            .downcast_ref::<Service2>()
+            .unwrap()
+            .run_service2();
     }
 }
 
@@ -60,19 +82,11 @@ mod tests {
     #[test]
     fn test_container() {
         let mut c = Container::default();
+
+        // use 2 ways to inject service into container
         Service1.inject(&mut c);
-        Service2.inject(&mut c);
+        c.bind("service2", Box::new(Service2));
 
-        assert!(c.svcs.contains_key("service1"));
-        assert!(c.svcs.contains_key("service2"));
-
-        c.resolve("service1")
-            .downcast_ref::<Service1>()
-            .unwrap()
-            .run_service1();
-        c.resolve("service2")
-            .downcast_ref::<Service2>()
-            .unwrap()
-            .run_service2();
+        c.run();
     }
 }
